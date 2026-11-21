@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bookmark Organizer</title>
+<style>
+body{font-family:Arial;background:#f1f5f9;padding:25px}
+main{max-width:650px;margin:auto;background:white;padding:30px;border-radius:16px}
+input{width:100%;padding:12px;box-sizing:border-box;margin:8px 0;border:1px solid #94a3b8;border-radius:8px}
+button{background:#334155;color:white;border:0;padding:12px 18px;border-radius:7px;cursor:pointer;margin:5px}
+.bookmark{background:#e2e8f0;padding:20px;margin:12px 0;border-radius:10px;overflow-wrap:anywhere}
+a{color:#2563eb}
+</style>
+</head>
+<body>
+<main>
+<h1>Bookmark Organizer</h1>
+<p>Save your favorite websites in one place.</p>
+<input id="title" placeholder="Website name">
+<input id="url" type="url" placeholder="https://example.com">
+<button onclick="addBookmark()">Save Bookmark</button>
+<p id="status"></p>
+<hr>
+<input id="search" placeholder="Search bookmarks..." oninput="render()">
+<div id="bookmarks"></div>
+</main>
+<script>
+let bookmarks=JSON.parse(localStorage.getItem("savedBookmarks")||"[]");
+function save(){
+ localStorage.setItem("savedBookmarks",JSON.stringify(bookmarks));
+ render();
+}
+function addBookmark(){
+ const title=document.getElementById("title");
+ const url=document.getElementById("url");
+ const status=document.getElementById("status");
+ try{
+  const link=new URL(url.value);
+  if(!title.value.trim()||!["http:","https:"].includes(link.protocol)){
+   throw new Error("Invalid input");
+  }
+  bookmarks.unshift({title:title.value.trim(),url:link.href});
+  title.value=url.value="";
+  status.textContent="Bookmark saved!";
+  save();
+ }catch{
+  status.textContent="Enter a valid website name and HTTP or HTTPS URL.";
+ }
+}
+function render(){
+ const list=document.getElementById("bookmarks");
+ const search=document.getElementById("search").value.toLowerCase();
+ list.innerHTML="";
+ bookmarks.forEach((item,i)=>{
+  if(!item.title.toLowerCase().includes(search)&&
+  !item.url.toLowerCase().includes(search))return;
+  const div=document.createElement("div");
+  div.className="bookmark";
+  const link=document.createElement("a");
+  link.textContent=item.title;
+  link.href=item.url;
+  link.target="_blank";
+  link.rel="noopener noreferrer";
+  const details=document.createElement("p");
+  details.textContent=item.url;
+  const btn=document.createElement("button");
+  btn.textContent="Delete";
+  btn.onclick=()=>{
+   bookmarks.splice(i,1);
+   save();
+  };
+  div.append(link,details,btn);
+  list.appendChild(div);
+ });
+}
+render();
+</script>
+</body>
+</html>
