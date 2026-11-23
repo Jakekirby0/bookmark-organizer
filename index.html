@@ -2,78 +2,163 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bookmark Organizer</title>
 <style>
-body{font-family:Arial;background:#f1f5f9;padding:25px}
-main{max-width:650px;margin:auto;background:white;padding:30px;border-radius:16px}
-input{width:100%;padding:12px;box-sizing:border-box;margin:8px 0;border:1px solid #94a3b8;border-radius:8px}
-button{background:#334155;color:white;border:0;padding:12px 18px;border-radius:7px;cursor:pointer;margin:5px}
-.bookmark{background:#e2e8f0;padding:20px;margin:12px 0;border-radius:10px;overflow-wrap:anywhere}
-a{color:#2563eb}
+body{font-family:Arial;background:#f8fafc;padding:25px}
+main{max-width:650px;margin:auto;background:white;padding:25px;border-radius:15px}
+input,select{width:100%;padding:12px;margin:8px 0;box-sizing:border-box}
+button{padding:10px 14px;background:#2563eb;color:white;border:0;border-radius:7px;cursor:pointer}
+.card{background:#dbeafe;padding:14px;margin:12px 0;border-radius:9px}
+.card a{display:block;font-weight:bold;overflow-wrap:anywhere;margin-bottom:8px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.delete{background:#dc2626}
+.favorite{background:#ca8a04}
 </style>
 </head>
 <body>
 <main>
 <h1>Bookmark Organizer</h1>
-<p>Save your favorite websites in one place.</p>
-<input id="title" placeholder="Website name">
+<p>Save and organize your favorite websites.</p>
+
+<input id="title" placeholder="Website title">
 <input id="url" type="url" placeholder="https://example.com">
-<button onclick="addBookmark()">Save Bookmark</button>
+
+<select id="category">
+<option value="General">General</option>
+<option value="Education">Education</option>
+<option value="Technology">Technology</option>
+<option value="Entertainment">Entertainment</option>
+<option value="Work">Work</option>
+</select>
+
+<button onclick="addBookmark()">Add Bookmark</button>
+
+<h2>My Bookmarks</h2>
+<input id="search" placeholder="Search bookmarks...">
+
+<select id="filter" onchange="render()">
+<option value="All">All Categories</option>
+<option value="General">General</option>
+<option value="Education">Education</option>
+<option value="Technology">Technology</option>
+<option value="Entertainment">Entertainment</option>
+<option value="Work">Work</option>
+<option value="Favorites">Favorites</option>
+</select>
+
+<div id="list"></div>
 <p id="status"></p>
-<hr>
-<input id="search" placeholder="Search bookmarks..." oninput="render()">
-<div id="bookmarks"></div>
 </main>
+
 <script>
-let bookmarks=JSON.parse(localStorage.getItem("savedBookmarks")||"[]");
+let bookmarks=JSON.parse(localStorage.getItem("organizedBookmarks")||"[]");
+
 function save(){
- localStorage.setItem("savedBookmarks",JSON.stringify(bookmarks));
+ localStorage.setItem("organizedBookmarks",JSON.stringify(bookmarks));
  render();
 }
+
 function addBookmark(){
- const title=document.getElementById("title");
- const url=document.getElementById("url");
+ const title=document.getElementById("title").value.trim();
+ const value=document.getElementById("url").value.trim();
+ const category=document.getElementById("category").value;
  const status=document.getElementById("status");
- try{
-  const link=new URL(url.value);
-  if(!title.value.trim()||!["http:","https:"].includes(link.protocol)){
-   throw new Error("Invalid input");
-  }
-  bookmarks.unshift({title:title.value.trim(),url:link.href});
-  title.value=url.value="";
-  status.textContent="Bookmark saved!";
-  save();
- }catch{
-  status.textContent="Enter a valid website name and HTTP or HTTPS URL.";
+
+ if(!title||!value){
+  status.textContent="Enter a title and website URL.";
+  return;
  }
+
+ let url;
+ try{
+  url=new URL(value);
+ }catch{
+  status.textContent="Please enter a valid URL.";
+  return;
+ }
+
+ if(!["http:","https:"].includes(url.protocol)){
+  status.textContent="Only HTTP and HTTPS links are supported.";
+  return;
+ }
+
+ if(bookmarks.some(b=>b.url===url.href)){
+  status.textContent="This bookmark already exists.";
+  return;
+ }
+
+ bookmarks.unshift({
+  title,
+  url:url.href,
+  category,
+  favorite:false
+ });
+
+ document.getElementById("title").value="";
+ document.getElementById("url").value="";
+ status.textContent="Bookmark saved successfully.";
+ save();
 }
+
 function render(){
- const list=document.getElementById("bookmarks");
- const search=document.getElementById("search").value.toLowerCase();
+ const query=document.getElementById("search").value.toLowerCase();
+ const filter=document.getElementById("filter").value;
+ const list=document.getElementById("list");
  list.innerHTML="";
- bookmarks.forEach((item,i)=>{
-  if(!item.title.toLowerCase().includes(search)&&
-  !item.url.toLowerCase().includes(search))return;
-  const div=document.createElement("div");
-  div.className="bookmark";
+
+ const filtered=bookmarks.filter(b=>{
+  const matchesText=b.title.toLowerCase().includes(query)||
+  b.url.toLowerCase().includes(query);
+  const matchesCategory=filter==="All"||
+  (filter==="Favorites"?b.favorite:b.category===filter);
+  return matchesText&&matchesCategory;
+ });
+
+ filtered.forEach(item=>{
+  const index=bookmarks.indexOf(item);
+  const card=document.createElement("div");
+  card.className="card";
+
   const link=document.createElement("a");
   link.textContent=item.title;
   link.href=item.url;
   link.target="_blank";
   link.rel="noopener noreferrer";
-  const details=document.createElement("p");
-  details.textContent=item.url;
-  const btn=document.createElement("button");
-  btn.textContent="Delete";
-  btn.onclick=()=>{
-   bookmarks.splice(i,1);
+
+  const category=document.createElement("p");
+  category.textContent="Category: "+item.category;
+
+  const actions=document.createElement("div");
+  actions.className="actions";
+
+  const fav=document.createElement("button");
+  fav.className="favorite";
+  fav.textContent=item.favorite?"Remove Favorite":"Add Favorite";
+  fav.onclick=()=>{
+   bookmarks[index].favorite=!bookmarks[index].favorite;
    save();
   };
-  div.append(link,details,btn);
-  list.appendChild(div);
+
+  const del=document.createElement("button");
+  del.className="delete";
+  del.textContent="Delete";
+  del.onclick=()=>{
+   bookmarks.splice(index,1);
+   save();
+  };
+
+  actions.append(fav,del);
+  card.append(link,category,actions);
+  list.appendChild(card);
  });
+
+ if(!filtered.length){
+  list.textContent="No bookmarks found.";
+ }
 }
+
+document.getElementById("search").addEventListener("input",render);
 render();
 </script>
 </body>
